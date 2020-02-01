@@ -363,12 +363,20 @@ def collate_fn(batch): # batch: ( data, cap, feat)
 	return data,caps,caps_mask,cap_classes,class_masks, feats1,feats2,feat_mask,lens,gts,image_id  # feat:(m,28,1536)
 
 def loaddset(opt):
-	train_pkl = os.path.join(opt.data_path, 'train.pkl')
-	valid_pkl = os.path.join(opt.data_path, 'valid.pkl')
-	test_pkl =  os.path.join(opt.data_path, 'test.pkl')
-	cap_pkl = os.path.join(opt.data_path, 'CAP.pkl')
-	cate_pkl = os.path.join(opt.data_path, 'category.pkl')
-	wtoi_path = os.path.join(opt.data_path, 'worddict.pkl')
+	train_pkl = os.path.join(opt.data_path, 'train.pkl')  # training video ids
+	valid_pkl = os.path.join(opt.data_path, 'valid.pkl')  # val video ids
+	test_pkl =  os.path.join(opt.data_path, 'test.pkl')   # test video ids
+	"""
+	vid1: [{tokenized,caption,caption_id,vid1},{},.....{}]
+	vid2: [{tokenized,caption,caption_id,vid2},{},.....{}]
+	......
+	vid10000: [{tokenized,caption,caption_id,vid10000},{},.....{}]
+	"""
+	cap_pkl = os.path.join(opt.data_path, 'CAP.pkl') # 每个视频包含20句描述
+	
+	cate_pkl = os.path.join(opt.data_path, 'category.pkl')  # 所有单词的词性信息
+	wtoi_path = os.path.join(opt.data_path, 'worddict.pkl')  # 所有单词对应的字典中的id
+	
 	# feature files, npy or hdf5
 	feat_path1 = os.path.join(opt.data_path, 'feats.hdf5')
 	feat_path2 = os.path.join(opt.data_path2, 'feats.hdf5')
