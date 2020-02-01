@@ -50,12 +50,12 @@ def get_sub_pool_frames(frames, K):
 
 def filt_word_category(cate_pkl, words):
 	# load the category file
-	category_words = load_pkl(cate_pkl)  # {NN:[cat, dog, pig]}
+	category_words = load_pkl(cate_pkl)  # {NN:[cat, dog, pig,....],'JJ':[limited,clean-up,.....]}
 	# make word and category conpends  {cat:NN, take:VB, ...}
 	words_category = {}
 	for category, wordlist in category_words.items():
 		for word in wordlist:
-			words_category[word] = category
+			words_category[word] = category   # 获取每个单词所属的词性类别
 	# give each category a ID
 	category_name_un = ['FW', '-LRB-', '-RRB-', 'LS']  # 1不明白
 	category_name_vb = ['VB', 'VBD', 'VBP', 'VBG', 'VBN', 'VBZ']    # 2动词
@@ -138,10 +138,10 @@ class custom_dset_train(Dataset):
 		return itow
 
 	def __init__(self, train_pkl, cap_pkl, cate_pkl, feat_path1, feat_path2, wtoi_path, nwords=10000, K=28, opt=None):
-		self.nwords = nwords
-		self.K = K
+		self.nwords = nwords   # 29324
+		self.K = K  # 20 每个视频选取的帧数？？
 		data_name_list = load_pkl( train_pkl ) #[vid1_0,vid1_2, ...]
-		caps = load_pkl( cap_pkl )
+		caps = load_pkl( cap_pkl ) # vid1: [{tokenized,caption,caption_id,vid1},{},.....{}]
 		wtoi = load_pkl( wtoi_path )
 		wtoi['<EOS>'] = 0
 		wtoi['UNK'] = 1  # because 'wtoi_path' start from 2.
