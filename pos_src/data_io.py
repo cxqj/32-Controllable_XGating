@@ -24,7 +24,7 @@ def load_pkl(pkl_file):
 		f.close()
 	return result
 
-def get_sub_frames(frames, K):
+def get_sub_frames(frames, K):  # K=20
 	# from all frames, take K of them, then add end of video frame
 	if len(frames) < K:
 		# frames_ = np.zeros([K, frames.shape[1]])
@@ -215,9 +215,9 @@ class custom_dset_train(Dataset):
 
 	def __getitem__(self, index):
 		data = self.data_list[index]
-		cap = self.cap_list[index]['numbered']
-		cap_class = self.cap_list[index]['category']
-		class_mask = self.cap_list[index]['category_mask']
+		cap = self.cap_list[index]['numbered']  # [2,10234,3233,86,5871,1223,627,737,7,1527,511]
+		cap_class = self.cap_list[index]['category']   # [9,3,2,2,2,2,3,1,6,3,3]
+		class_mask = self.cap_list[index]['category_mask'] # [1,1,1,1,1,1,1,1,]
 		gts = self.gts_list[index]
 
 		# feat = np.load(self.feat_path +'train/' + data.split('_')[0] + '.npy')
