@@ -279,3 +279,5 @@ if __name__ == '__main__':
 		# seq,seqlogprob = model.sample_beam(feat,feat_mask)
 		print(seq)
 		break
+
+		
