@@ -65,16 +65,17 @@ class Fusion(nn.Module):
 										 nn.Dropout(self.drop_prob_lm)
 										 )
 
-	def forward(self, feats1, feats2, feat_mask=None):  # feats (m ,28, featsize1) feat_mask(m, 28)
+	def forward(self, feats1, feats2, feat_mask=None):  # feats (B ,20, 512) feat_mask(m, 28)
 		assert feats1.shape[0] == feats2.shape[0] and feats1.shape[1] == feats2.shape[1], 'Size Error: sizes of feats1 and feats2 are not match.'
 		feats = to_contiguous(torch.cat([feats1, feats2], -1))  # (m, 28, feat_size+featsize2)
 		feats = self.late_fusion(feats)
-		return feats
+		return feats  # (B,20,512)
 
 
 ##############
 ## encoders ##
 ##############
+# 使用cross gating strategy
 class EncoderLstm_two_fc(nn.Module):
 	''' generally, take RGB and OF fc_features as input:
 		1. visual embedding layer turn them as the embeding size;
@@ -111,8 +112,8 @@ class EncoderLstm_two_fc(nn.Module):
 
 	def init_hidden(self, batch_size):
 		h_size = (batch_size, self.rnn_size)
-		h_0 = Variable(torch.FloatTensor(*h_size).zero_(), requires_grad=False).cuda()
-		c_0 = Variable(torch.FloatTensor(*h_size).zero_(), requires_grad=False).cuda()
+		h_0 = Variable(torch.FloatTensor(*h_size).zero_(), requires_grad=False).cuda()  # (B,512)
+		c_0 = Variable(torch.FloatTensor(*h_size).zero_(), requires_grad=False).cuda()  # (B,512)
 		return (h_0, c_0)
 
 	def forward(self, feats_rgb, feats_opfl, feats_mask ):  # feats:(m, 28, 1536), feats_mask:(m,28)
@@ -120,29 +121,29 @@ class EncoderLstm_two_fc(nn.Module):
 		# for rgb features
 		emb_rgb = self.visual_emb_rgb(feats_rgb.view(-1, feats_rgb.size(-1)))
 		emb_rgb = emb_rgb.view(batch_size, feat_len, -1)
-		emb_rgb = self.drop_out(emb_rgb) * feats_mask.unsqueeze(-1)
-		state_rgb = self.init_hidden(batch_size)
+		emb_rgb = self.drop_out(emb_rgb) * feats_mask.unsqueeze(-1) # (B,20,512)
+		state_rgb = self.init_hidden(batch_size)   # 初始化RGB LSTM状态
 		# for optical flow features
 		emb_opfl = self.visual_emb_opfl(feats_opfl.view(-1, feats_opfl.size(-1)))
 		emb_opfl = emb_opfl.view(batch_size, feat_len, -1)
-		emb_opfl = self.drop_out(emb_opfl) * feats_mask.unsqueeze(-1)
-		state_opfl = self.init_hidden(batch_size)
+		emb_opfl = self.drop_out(emb_opfl) * feats_mask.unsqueeze(-1) # (B,20,512)
+		state_opfl = self.init_hidden(batch_size)  # 初始化FLOW LSTM状态
 
 		out_feats_rgb, out_feats_opfl = [], []
 		for i in range(feat_len):
-			input_rgb = emb_rgb[:, i, :]
-			input_opfl = emb_opfl[:, i, :]
+			input_rgb = emb_rgb[:, i, :]   # (B,512)
+			input_opfl = emb_opfl[:, i, :] # (B,512)
 
 			# for rgb features
 			mask_rgb = feats_mask[:, i]
-			state_h_rgb, state_c_rgb = self.lstmcell_rgb(input_rgb, state_rgb)
+			state_h_rgb, state_c_rgb = self.lstmcell_rgb(input_rgb, state_rgb) # (B,512),(B,512)
 			state_h_rgb = state_h_rgb * mask_rgb.unsqueeze(-1)
 			state_c_rgb = state_c_rgb * mask_rgb.unsqueeze(-1)
 			state_rgb = (state_h_rgb, state_c_rgb)
 
 			# for optical flow features
 			mask_opfl = feats_mask[:, i]
-			state_h_opfl, state_c_opfl = self.lstmcell_opfl(input_opfl, state_opfl)
+			state_h_opfl, state_c_opfl = self.lstmcell_opfl(input_opfl, state_opfl) # (B,512),(B,512)
 			state_h_opfl = state_h_opfl * mask_opfl.unsqueeze(-1)
 			state_c_opfl = state_c_opfl * mask_opfl.unsqueeze(-1)
 			state_opfl = (state_h_opfl, state_c_opfl)
@@ -158,7 +159,7 @@ class EncoderLstm_two_fc(nn.Module):
 		output = self.fusion(output_rgb, output_opfl, feats_mask)  # (m, nframes, rnn_size)
 		return output
 
-
+# 不使用cross gating strategy
 class EncoderLstm_two_fc_nogate(nn.Module):
 	''' generally, take RGB and OF fc_features as input:
 		1. visual embedding layer turn them as the embeding size;
@@ -192,46 +193,46 @@ class EncoderLstm_two_fc_nogate(nn.Module):
 
 	def init_hidden(self, batch_size):
 		h_size = (batch_size, self.rnn_size)
-		h_0 = Variable(torch.FloatTensor(*h_size).zero_(), requires_grad=False).cuda()
-		c_0 = Variable(torch.FloatTensor(*h_size).zero_(), requires_grad=False).cuda()
+		h_0 = Variable(torch.FloatTensor(*h_size).zero_(), requires_grad=False).cuda() # (B,512)
+		c_0 = Variable(torch.FloatTensor(*h_size).zero_(), requires_grad=False).cuda() # (B,512)
 		return (h_0, c_0)
 
-	def forward(self, feats_rgb, feats_opfl, feats_mask):  # feats:(m, 28, 1536), feats_mask:(m,28)
+	def forward(self, feats_rgb, feats_opfl, feats_mask):  # feats_rgb:(B, 20, 1536), features_opf1:(B,20,1024), feats_mask:(B,20)
 		batch_size, feat_len = feats_rgb.size(0), feats_rgb.size(1)  # 因为rgb和optical flow在数据数据输入阶段规定了只采样30帧，因此二者shape是完全一样的。
 		# for rgb features
-		emb_rgb = self.visual_emb_rgb(feats_rgb.view(-1, feats_rgb.size(-1)))
+		emb_rgb = self.visual_emb_rgb(feats_rgb.view(-1, feats_rgb.size(-1))) # (Bx20,512)
 		emb_rgb = emb_rgb.view(batch_size, feat_len, -1)
-		emb_rgb = self.drop_out(emb_rgb) * feats_mask.unsqueeze(-1)
-		state_rgb = self.init_hidden(batch_size)
+		emb_rgb = self.drop_out(emb_rgb) * feats_mask.unsqueeze(-1) # (B,20,512)
+		state_rgb = self.init_hidden(batch_size)  # 初始化RGB LSTM状态
 		# for optical flow features
-		emb_opfl = self.visual_emb_opfl(feats_opfl.view(-1, feats_opfl.size(-1)))
+		emb_opfl = self.visual_emb_opfl(feats_opfl.view(-1, feats_opfl.size(-1))) # (Bx20,512)
 		emb_opfl = emb_opfl.view(batch_size, feat_len, -1)
-		emb_opfl = self.drop_out(emb_opfl) * feats_mask.unsqueeze(-1)
-		state_opfl = self.init_hidden(batch_size)
+		emb_opfl = self.drop_out(emb_opfl) * feats_mask.unsqueeze(-1) # (B,20,512)
+		state_opfl = self.init_hidden(batch_size)  # 初始化FLOW LSTM状态
 
 		out_feats_rgb, out_feats_opfl = [], []
 		for i in range(feat_len):
-			input_rgb = emb_rgb[:, i, :]
-			input_opfl = emb_opfl[:, i, :]
+			input_rgb = emb_rgb[:, i, :]  # (B,512)
+			input_opfl = emb_opfl[:, i, :] # (B,512)
 
 			# for rgb features
 			mask_rgb = feats_mask[:, i]
-			state_h_rgb, state_c_rgb = self.lstmcell_rgb(input_rgb, state_rgb)
+			state_h_rgb, state_c_rgb = self.lstmcell_rgb(input_rgb, state_rgb)  # (B,512),(B,512)
 			state_h_rgb = state_h_rgb * mask_rgb.unsqueeze(-1)
 			state_c_rgb = state_c_rgb * mask_rgb.unsqueeze(-1)
-			state_rgb = (state_h_rgb, state_c_rgb)
+			state_rgb = (state_h_rgb, state_c_rgb)  # ((B,512),(B,512))
 
 			# for optical flow features
 			mask_opfl = feats_mask[:, i]
-			state_h_opfl, state_c_opfl = self.lstmcell_opfl(input_opfl, state_opfl)
+			state_h_opfl, state_c_opfl = self.lstmcell_opfl(input_opfl, state_opfl) # (B,512),(B,512)
 			state_h_opfl = state_h_opfl * mask_opfl.unsqueeze(-1)
 			state_c_opfl = state_c_opfl * mask_opfl.unsqueeze(-1)
-			state_opfl = (state_h_opfl, state_c_opfl)
+			state_opfl = (state_h_opfl, state_c_opfl) # ((B,512),(B,512))
 
 			out_feats_rgb.append(state_h_rgb)
 			out_feats_opfl.append(state_h_opfl)
-		output_rgb = torch.cat([x.unsqueeze(1) for x in out_feats_rgb], dim=1)  # (m, nframes, rnn_size)
-		output_opfl = torch.cat([x.unsqueeze(1) for x in out_feats_opfl], dim=1)  # (m, nframes, rnn_size)
+		output_rgb = torch.cat([x.unsqueeze(1) for x in out_feats_rgb], dim=1)  # (B,20,512)
+		output_opfl = torch.cat([x.unsqueeze(1) for x in out_feats_opfl], dim=1)  # (B,20,512)
 		# fusion rgb and optical flow hidden state together
 		output = self.fusion(output_rgb, output_opfl, feats_mask)  # (m, nframes, rnn_size)
 		return output
@@ -695,19 +696,19 @@ class LSTMCore_one_layer(nn.Module):
 		#  Build a LSTM
 		self.lstmcell = two_inputs_lstmcell(self.input_encoding_size, self.visual_size, self.rnn_size, self.drop_prob_lm)
 		#  Build the soft attention
-		self.v2a = nn.Linear(self.visual_size, self.att_size)  #  Uv  (1536,att_size)
-		self.h2a = nn.Linear(self.rnn_size, self.att_size)  #  Wh  (1000,1536)
+		self.v2a = nn.Linear(self.visual_size, self.att_size)  #  Uv  (512,1536)
+		self.h2a = nn.Linear(self.rnn_size, self.att_size)  #  Wh  (512,1536)
 		self.a2w = nn.Linear(self.att_size, 1)  #  Wtanh(Wh+Uv+b)  (1536,1)
 
-	def forward(self, xt, xt_mask, V, state): # xt:(m,input_encoding_size) xt_mask:(m,1) V:(m,28,visual_size)
-		#  attention
-		alpha = self.h2a(state[0][-1]).unsqueeze(1) + self.v2a(V)  # [(m,rnn_size)x(rnn_size,att_size)].unsqueeze(1)+(m,28,visual_size)x(visual_size,att_size)=>(m,28,att_size)
+	def forward(self, xt, xt_mask, V, state): # xt:(B,468) xt_mask:(B,1) V:(B,20,512) state:((1,B,512),(1,B,512))
+		#  attention,融合hidden_state和video特征
+		alpha = self.h2a(state[0][-1]).unsqueeze(1) + self.v2a(V)  # [(B,512)x(512,1536)].unsqueeze(1)+(B,20,512)x(512,1536)=>(B,20,1536)
 		alpha = F.tanh( alpha )
-		alpha = self.a2w(alpha)  #  (m,28,1)
-		alpha = alpha.transpose(1,0)  #  (28,m,1)
-		alpha = F.softmax( alpha, dim=0 )  #  (28,m,1)
-		alpha = alpha.transpose(1,0)  #  (m,28,1)
-		af = torch.sum(alpha*V, dim=1)  #  (m,self.visual_size)
+		alpha = self.a2w(alpha)  #(B,20,1)
+		alpha = alpha.transpose(1,0)  #(20,B,1)
+		alpha = F.softmax( alpha, dim=0 )  #(20,B,1)
+		alpha = alpha.transpose(1,0)  #  (B,20,1)
+		af = torch.sum(alpha*V, dim=1)  #  (B,512)
 
 		# lstm unit
 		output, state = self.lstmcell(xt, af, state, xt_mask)
@@ -865,10 +866,10 @@ class two_inputs_lstmcell(nn.Module):
 		if self.drop_lm is not None:
 			self.dropout = nn.Dropout(self.drop_lm)
 
-	def forward(self, input1, input2, state, mask=None):
+	def forward(self, input1, input2, state, mask=None):  # inputs1=(B,468),inputs2=(B,512)  state : ((1,B,512),(1,B,512))
 		''' 要求输入的state形状是 ((1, m, rnn_size),(1, m, rnn_size)) '''
-		all_input_sums = self.i2h(input1) + self.a2h(input2) + self.h2h(state[0][-1])
-		sigmoid_chunk = all_input_sums.narrow(dimension=1, start=0, length=3*self.rnn_size)
+		all_input_sums = self.i2h(input1) + self.a2h(input2) + self.h2h(state[0][-1])  # (B,2048)
+		sigmoid_chunk = all_input_sums.narrow(dimension=1, start=0, length=3*self.rnn_size) # narrow:选取变量的某一维度的某几个值
 		sigmoid_chunk = F.sigmoid(sigmoid_chunk)
 		in_gate = sigmoid_chunk.narrow(1, 0, self.rnn_size)  # (m, rnn_size)
 		forget_gate = sigmoid_chunk.narrow(1, self.rnn_size, self.rnn_size)
