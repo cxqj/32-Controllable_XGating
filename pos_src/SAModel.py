@@ -135,19 +135,20 @@ class SAModel(CaptionModel):
 		# return the samples and their log likelihoods
 		return seq.transpose(0, 1), seqLogprobs.transpose(0, 1)  # seq/seqLogprobs: (batch_size,seq_length)
 
+	# 用于验证seq生成结果
 	def sample(self, feats_rgb, feats_opfl, feat_mask, opt={}):
 		sample_max = opt.get('sample_max', 1)
 		beam_size = opt.get('beam_size', 1)
 		temperature = opt.get('temperature', 1.0)
 		# =========== encoder lstm on feats =================
-		feats = self.two_fc_encoder(feats_rgb, feats_opfl, feat_mask)
+		feats = self.two_fc_encoder(feats_rgb, feats_opfl, feat_mask)  # (B,20,512)
 
 		if beam_size > 1:   # if that, it turns to beam search
 			return self.sample_beam(feats,feat_mask, opt)
 		else:
 			print('sampling with greedy search')
 		batch_size = feats.size(0)
-		state = self.init_hidden(feats, feat_mask)
+		state = self.init_hidden(feats, feat_mask)  # ((1,B,512),(1,B,512))
 		seq = []
 		seqLogprobs = []
 		collect_states = []
