@@ -47,11 +47,13 @@ def eval_split(model, crit, classify_crit, my_dset, eval_kwargs={}, pos_flag=Fal
 			new_mask[i, :index + 1] = 1.0
 
 		# forward the model to get loss
-		out = model(feat1, feat2, feat_mask, cap, cap_mask, cap_classes, new_mask)
+		out = model(feat1, feat2, feat_mask, cap, cap_mask, cap_classes, new_mask)  # (B,10,14)
 		loss = classify_crit(out, cap_classes, cap_mask, class_mask).data[0]
 		loss_sum = loss_sum + loss
 		loss_evals = loss_evals + 1
 		# forward the model to also get generated samples for each image
+		# seg:[[9,3,2,2,2,2,2,9,3,3],[9,3,2,2,2,2,2,9,3,3]]
+		# segLogprobs :[[-0.3068,....],[-0.29725,.....]]
 		seq, seqLogprobs, collect_state, collect_mask = model.sample(feat1, feat2, feat_mask, eval_kwargs)
 		if 'cuda' in str(type(seq)):
 			seq = seq.cpu()
@@ -115,3 +117,4 @@ def language_eval(sample_seqs, gt_seqs):# sample_seqs:list[[x,x],[x,x],...], gt_
 if __name__ == "__main__":
 	language_eval()
 	# encoder.FLOAT_REPR = lambda o: format(o, '.3f')
+	
