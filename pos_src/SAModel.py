@@ -16,13 +16,13 @@ class SAModel(CaptionModel):
 		torch.manual_seed(opt.seed)
 		torch.cuda.manual_seed(opt.seed)
 
-		self.category_size = opt.category_size
+		self.category_size = opt.category_size  # 14
 		self.input_encoding_size = opt.input_encoding_size  # 468
 		self.rnn_size = opt.rnn_size  # 512
-		self.visual_size = opt.rnn_size
+		self.visual_size = opt.rnn_size  # 512
 		self.num_layers = opt.num_layers  # 1
-		self.drop_prob_lm = opt.drop_prob_lm
-		self.seq_length = opt.seq_length
+		self.drop_prob_lm = opt.drop_prob_lm # 0.5
+		self.seq_length = opt.seq_length  # 28
 		self.ss_prob = 0.0  # Schedule sampling probability
 
 		self.two_fc_encoder = EncoderLstm_two_fc_nogate(opt)
@@ -31,8 +31,8 @@ class SAModel(CaptionModel):
 		self.img_embed_c_1 = nn.Linear(self.visual_size, self.rnn_size)  # (rnn_size, rnn_size)
 
 		self.lstmcore = LSTMCore_one_layer(opt)
-		self.embed = nn.Embedding(self.category_size, self.input_encoding_size)
-		self.logit = nn.Linear(self.rnn_size, self.category_size)
+		self.embed = nn.Embedding(self.category_size, self.input_encoding_size) # (14,468)
+		self.logit = nn.Linear(self.rnn_size, self.category_size) # (512,14)
 
 		self.init_weights()
 
