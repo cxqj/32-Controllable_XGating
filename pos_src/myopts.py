@@ -87,3 +87,4 @@ def parse_opt():
     assert args.reward_type in ['BLEU','METEOR','ROUGE','CIDEr','MIX'], "check the reward type, which should be 'BLEU','METEOR','ROUGE','CIDEr' or 'MIX'"
 
     return args
+
