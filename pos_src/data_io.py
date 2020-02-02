@@ -191,21 +191,23 @@ class custom_dset_train(Dataset):
 				cap_list.append( new_cap )
 
 		gts_list = []
+               
 		for i,ID in enumerate(data_list):
 			sub_gts_list = []
 			vidid, _ = ID.split('_')
-			for cap in caps[vidid]:
+			for cap in caps[vidid]:   # {tokenized,caption,cap_id,image_id}
 				token = cap['tokenized'].split()
 				numbered = [ wtoi[w] if w in wtoi_keys else 1 for w in token ]
 				sub_gts_list.append(numbered)
-			sub_gts_list.sort(key=lambda x: len(x),reverse=True)
-			tmp_gts_arr = np.zeros([len(sub_gts_list),len(sub_gts_list[0])],dtype=int)
+			# 将所有句子补齐到最长
+			sub_gts_list.sort(key=lambda x: len(x),reverse=True)   # 由长到短对句子排序
+			tmp_gts_arr = np.zeros([len(sub_gts_list),len(sub_gts_list[0])],dtype=int)  # (20,max_len)
 			for x in range(len(sub_gts_list)):
 				tmp_gts_arr[x,:len(sub_gts_list[x])] = sub_gts_list[x]
 			gts_list.append(tmp_gts_arr)
 
 		self.data_list = data_list  #[vid1_0,vid1_2, ...]
-		self.cap_list = cap_list    #[{},{},...]
+		self.cap_list = cap_list    #[{caption,tokenized,numberd,category,unmask_category},{},...]
 		self.gts_list = gts_list    #[[str,str,...],...]
 		self.feat_path1 = feat_path1
 		self.feat_path2 = feat_path2
@@ -310,7 +312,7 @@ class custom_dset_test(Dataset):
 		self.gts_list = gts_list
 		self.feat_path1 = feat_path1
 		self.feat_path2 = feat_path2
-		print('got %d data and %d labels'%(len(self.data_list),len(self.cap_list)))
+		print('got %d data and %d labels'%(len(self.data_list),len(self.cap_list)))  # 497
 
 	def __getitem__(self, index):
 		data = self.data_list[index]
