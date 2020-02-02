@@ -57,22 +57,24 @@ class SAModel(CaptionModel):
 		feat_mean = ( feat_ / mask_.unsqueeze(-1) ).unsqueeze(0)  # (1,m,visual_size)
 		feat_mean = Variable(feat_mean,requires_grad=False).cuda()
 		state1 = (self.img_embed_h_1(feat_mean), self.img_embed_c_1(feat_mean))
-		return state1
+		return state1  # ((1,B,512),(1,B,512))
 
 	def forward(self, feats_rgb, feats_opfl, feat_mask, seq, seq_mask, cap_classes, new_mask):
 		''' feats_rgb and feats_opfl: (m, K, feat_size)
 			seq: (m,seq_len+1)
 			seq_mask:(m,seq_len+1)'''
-		feats = self.two_fc_encoder(feats_rgb, feats_opfl, feat_mask)  #(m, K, rnn_size)
+		
+		# 使用cross gating strategy或传统的卷积层融合rgb和flow特征
+		feats = self.two_fc_encoder(feats_rgb, feats_opfl, feat_mask)  #(m, K, rnn_size) (B,20,512)
 
-		seq = cap_classes
-		seq_mask = new_mask
+		seq = cap_classes # (2,12)
+		seq_mask = new_mask # (2,12)
 
 		batch_size = feats.size(0)
-		state = self.init_hidden(feats, feat_mask) # ( (1,m,rnn_size), (1,m,rnn_size) )
+		state = self.init_hidden(feats, feat_mask) # ((1,B,512),(1,B,512))
 		outputs_hidden = [] # before use log_softmax
 		outputs = [] # after use log_softmax
-		for i in range(cap_classes.size(1)):
+		for i in range(cap_classes.size(1)): # 12
 			if self.training and i >= 1 and self.ss_prob > 0.0:  # otherwise no need to sample
 				it = seq[:, i].clone()
 			else:
@@ -80,8 +82,8 @@ class SAModel(CaptionModel):
 			# break if all the sequences end
 			if i >= 1 and seq[:, i].data.sum() == 0:
 				break
-			xt = self.embed(it)
-			xt_mask = seq_mask[:, i].unsqueeze(1)
+			xt = self.embed(it)  #(2,468)
+			xt_mask = seq_mask[:, i].unsqueeze(1) # (2,1)
 			output, state = self.lstmcore(xt,xt_mask,feats, state)  # output:(m,1000)
 			outputs_hidden.append(output) # [(m,1000),(m,1000),...], total: seq_len+1 propare for RecNet
 			output_category = F.log_softmax(self.logit(output), dim=1)
