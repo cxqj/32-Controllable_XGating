@@ -54,11 +54,11 @@ class Fusion(nn.Module):
 		super(Fusion, self).__init__()
 		torch.manual_seed(seed)
 		torch.cuda.manual_seed(seed)
-		self.feat_size1 = feat_size1
-		self.feat_size2 = feat_size2
-		self.fusion_size = fusion_size
+		self.feat_size1 = feat_size1  # 512
+		self.feat_size2 = feat_size2  # 512
+		self.fusion_size = fusion_size # 512
 		self.drop_prob_lm = drop_lm
-		self.activity = activity
+		self.activity = activity  # 'RELU'
 
 		self.late_fusion = nn.Sequential(nn.Linear(self.feat_size1 + self.feat_size2, self.fusion_size),
 										 getattr(nn, self.activity)(),
@@ -170,12 +170,12 @@ class EncoderLstm_two_fc_nogate(nn.Module):
 		torch.cuda.manual_seed(opt.seed)
 
 		# self.flag == 'temporal'
-		self.feat_size_rgb = opt.feat_size
-		self.feat_size_opfl = opt.feat_size2
+		self.feat_size_rgb = opt.feat_size   # 1536
+		self.feat_size_opfl = opt.feat_size2 # 1024
 
-		self.embed_size = opt.rnn_size
-		self.rnn_size = opt.rnn_size
-		self.drop_prob_lm = opt.drop_prob_lm
+		self.embed_size = opt.rnn_size # 512
+		self.rnn_size = opt.rnn_size  # 512
+		self.drop_prob_lm = opt.drop_prob_lm # 0.5
 
 		self.visual_emb_rgb = nn.Sequential(nn.Linear(self.feat_size_rgb, self.embed_size),
 											nn.BatchNorm1d(self.embed_size),
@@ -686,10 +686,10 @@ class LSTMCore_one_layer(nn.Module):
 		torch.cuda.manual_seed(opt.seed)
 		#  word and rnn size
 		self.input_encoding_size = opt.input_encoding_size  #  468
-		self.rnn_size = opt.rnn_size  #  1000 or 3518
+		self.rnn_size = opt.rnn_size  #  512
 		#  feat and attention size
-		self.visual_size = opt.rnn_size
-		self.att_size = opt.att_size  #
+		self.visual_size = opt.rnn_size # 512
+		self.att_size = opt.att_size  # 1536
 		#  drop out
 		self.drop_prob_lm = opt.drop_prob_lm  #  0.5
 		#  Build a LSTM
@@ -851,10 +851,10 @@ class two_inputs_lstmcell(nn.Module):
 	''' rewrite the lstmcell with two inputs '''
 	def __init__(self,input_size, visual_size, rnn_size, drop_lm=0.5):
 		super(two_inputs_lstmcell, self).__init__()
-		self.input_size = input_size
-		self.rnn_size = rnn_size
-		self.visual_size = visual_size
-		self.drop_lm = drop_lm
+		self.input_size = input_size  # 468
+		self.rnn_size = rnn_size # 512
+		self.visual_size = visual_size # 512
+		self.drop_lm = drop_lm # 0.5
 		# input1
 		self.i2h = nn.Linear(self.input_size, 4 * self.rnn_size)
 		# input2
