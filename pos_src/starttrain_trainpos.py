@@ -56,8 +56,8 @@ def train(opt):
 	iteration = 1 #infos.get('iter', 0) + 1
 	epoch = 0#infos.get('epoch', 0)
 
-	val_result_history = histories.get('val_result_history', {})
-	loss_history = histories.get('loss_history', {})
+	val_result_history = histories.get('val_result_history', {})  # {}
+	loss_history = histories.get('loss_history', {})  # {}
 	lr_history = histories.get('lr_history', {})
 	ss_prob_history = histories.get('ss_prob_history', {})
 
@@ -122,13 +122,18 @@ def train(opt):
 			start = time.time()
 			cap = Variable(cap,requires_grad=False).cuda()
 			cap_mask = Variable(cap_mask,requires_grad=False).cuda()
+			"""
+			[9,3,2,2,2,2,3,1,6,3,3,0],[2,2,2,8,9,2,0,0,0,0,0,0]
+			"""
 			cap_classes = Variable(cap_classes, requires_grad=False).cuda()  # (m, seq_len+1)
 			class_mask = Variable(class_mask, requires_grad=False).cuda()
 			feat1 = Variable(feat1, requires_grad=False).cuda()
 			feat2 = Variable(feat2, requires_grad=False).cuda()
 
 			feat_mask = Variable(feat_mask,requires_grad = False).cuda()
-
+			"""
+			[0,9,3,2,2,2,2,3,1,6,3,3],[0,2,2,2,8,9,2,0,0,0,0,0]  向右循环移动一位
+			"""
 			cap_classes = torch.cat([cap_classes[:, -1:], cap_classes[:, :-1]], dim=-1)  # (m, seq_len+1)
 			new_mask = torch.zeros_like(class_mask)  # (m, seq_len+1)
 			for i in range(class_mask.size(0)):
