@@ -84,12 +84,12 @@ class SAModel(CaptionModel):
 				break
 			xt = self.embed(it)  #(2,468)
 			xt_mask = seq_mask[:, i].unsqueeze(1) # (2,1)
-			output, state = self.lstmcore(xt,xt_mask,feats, state)  # output:(m,1000)
-			outputs_hidden.append(output) # [(m,1000),(m,1000),...], total: seq_len+1 propare for RecNet
-			output_category = F.log_softmax(self.logit(output), dim=1)
-			outputs.append(output_category)  # [ (m,nwords),(m,nwords), ... ], total: seq_len+1
+			output, state = self.lstmcore(xt,xt_mask,feats, state)  # output:(B,512)
+			outputs_hidden.append(output) # [(B,512),(B,512),...], total: seq_len+1 propare for RecNet
+			output_category = F.log_softmax(self.logit(output), dim=1) # (B,14)
+			outputs.append(output_category)  # [(B,14),(B,14), ... ], total: seq_len+1
 
-		return torch.cat([_.unsqueeze(1) for _ in outputs], 1).contiguous()
+		return torch.cat([_.unsqueeze(1) for _ in outputs], 1).contiguous()  # (B,seq_len+1,14)
 
 	def get_logprobs_state(self, it, feats, state): # just obtain the logprobs and state for one only word
 		# 'it' is Variable contraining a word index
