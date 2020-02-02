@@ -871,20 +871,20 @@ class two_inputs_lstmcell(nn.Module):
 		all_input_sums = self.i2h(input1) + self.a2h(input2) + self.h2h(state[0][-1])  # (B,2048)
 		sigmoid_chunk = all_input_sums.narrow(dimension=1, start=0, length=3*self.rnn_size) # narrow:选取变量的某一维度的某几个值
 		sigmoid_chunk = F.sigmoid(sigmoid_chunk)
-		in_gate = sigmoid_chunk.narrow(1, 0, self.rnn_size)  # (m, rnn_size)
-		forget_gate = sigmoid_chunk.narrow(1, self.rnn_size, self.rnn_size)
-		out_gate = sigmoid_chunk.narrow(1, self.rnn_size * 2, self.rnn_size)
-		tanh_chunk = all_input_sums.narrow(1, 3 * self.rnn_size, self.rnn_size)
+		in_gate = sigmoid_chunk.narrow(1, 0, self.rnn_size)  # (B,512)
+		forget_gate = sigmoid_chunk.narrow(1, self.rnn_size, self.rnn_size) # (B,512)
+		out_gate = sigmoid_chunk.narrow(1, self.rnn_size * 2, self.rnn_size) # (B,512)
+		tanh_chunk = all_input_sums.narrow(1, 3 * self.rnn_size, self.rnn_size) # (B,512)
 		in_transform = F.tanh(tanh_chunk)
-		state_c = forget_gate * state[1][-1] + in_gate * in_transform
+		state_c = forget_gate * state[1][-1] + in_gate * in_transform # (B,512)
 		if mask is not None:
 			state_c = state_c * mask + state[1][-1] * (1. - mask)
 		state_h = out_gate * F.tanh(state_c)
 		if mask is not None:
-			state_h = state_h * mask + state[0][-1] * (1. - mask)
+			state_h = state_h * mask + state[0][-1] * (1. - mask) # (B,512)
 		if self.drop_lm is not None:
 			state_h = self.dropout(state_h)
 		output = state_h  # (m, rnn_size)
 		# state returned has the same shape as the input state
-		return output, (state_h.unsqueeze(0), state_c.unsqueeze(0))
+		return output, (state_h.unsqueeze(0), state_c.unsqueeze(0)) # (B,512),((1,B,512),(1,B,512))
 
