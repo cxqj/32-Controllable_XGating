@@ -165,7 +165,7 @@ def train(opt):
 				print("iter {} (epoch {}), avg_reward = {:.3f}, time/batch = {:.3f}".format(iteration, epoch, np.mean(reward[:, 0]), end - start))
 
 			# Write the training loss summary
-			if (iteration % opt.losses_log_every == 0):
+			if (iteration % opt.losses_log_every == 0):   # losses_log_every=50 
 				if tf is not None:
 					logger.scalar_summary('train_loss', train_loss, iteration)
 					logger.scalar_summary('learning_rate', opt.current_lr, iteration)
@@ -178,12 +178,13 @@ def train(opt):
 				ss_prob_history[iteration] = model.ss_prob
 
 			# make evaluation on validation set, and save model
-			if (iteration % opt.save_checkpoint_every == 0):
+			if (iteration % opt.save_checkpoint_every == 0): # save_checkpoint_every=50
 				# eval model
 				print('validation and save the model...')
 				time.sleep(3)
 				eval_kwargs = {}
 				eval_kwargs.update(vars(opt)) # attend vars(opt) into eval_kwargs
+				# prediction = [] lang_stats = None
 				val_loss, predictions, lang_stats = eval_utils.eval_split(model, crit, classify_crit, myvalid_dset, eval_kwargs)
 				print('val loss: {}'.format(val_loss))
 				print('validation is finish!')
@@ -268,3 +269,4 @@ if __name__ == '__main__':
 	opt = myopts.parse_opt()
 	print('start training')
 	train(opt=opt)
+	
