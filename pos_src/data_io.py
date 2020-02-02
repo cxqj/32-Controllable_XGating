@@ -147,17 +147,36 @@ class custom_dset_train(Dataset):
 		wtoi['UNK'] = 1  # because 'wtoi_path' start from 2.
 		wtoi_keys = wtoi.keys()
 		self.wtoi = wtoi
+		
+		
+		"""
+		filted_class : {'<EOS>':0, '<UNK>':1, 'cat':3, 'take':2, 'log_vir':1}  单词对应的词性id
+		words_class : {cat:NN, take:VB, ...}  单词词性
+		class_id: {VB:2, VBS:2, NN:3, NNS:3 ...}  词性id
+		class_words : {NN:[cat, dog, pig,....],'JJ':[limited,clean-up,.....]}   每种词性对应的所有单词
+		unmasked_classid ： [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
+		
+		"""
+		
 		filted_class, words_class, class_id, class_words, unmasked_classid = filt_word_category(cate_pkl, wtoi)
 		self.category = filted_class
 		category_keys = self.category.keys()
 
-		temp_cap_list = []
+		temp_cap_list = []  # [{tokenized,caption,cap_id,img_id},{},{}......]
 		for i,ID in enumerate(data_name_list):
-			vidid, capid = ID.split('_') # vidid='vid1', capid=0
+			vidid, capid = ID.split('_') # vid1_0(vidid='vid1', capid=0)
 			temp_cap_list.append(caps[vidid][int(capid)])
 
 		data_list = []
 		cap_list = []
+		"""
+		new_cap:
+		   caption: 'a girl with black top cooking in the kitchen'
+		   tokenized: 'a girl with black top cooking in the kitchen'
+		   numbered: [2,2,3,13,43,210,83,5,4,92]
+		   category: [9,3,8,4,2,2,10,9,3]     
+		   category_mask: [1,1,1,1,1,1,1,1,1]
+		"""
 		for data,cap in zip(data_name_list,temp_cap_list):
 			token = cap['tokenized'].split()
 			if 0 < len(token) <= opt.seq_length:
@@ -166,7 +185,7 @@ class custom_dset_train(Dataset):
 				# new_cap['image_id'] = cap['image_id']
 				new_cap['caption'] = cap['caption']
 				new_cap['tokenized'] = cap['tokenized']
-				new_cap['numbered'] = [ wtoi[w] if w in wtoi_keys else 1 for w in token]
+				new_cap['numbered'] = [ wtoi[w] if w in wtoi_keys else 1 for w in token]   # [2,23,4,19,....]
 				new_cap['category'] = [self.category[w] if w in category_keys else 1 for w in token]
 				new_cap['category_mask'] = [1 if index in unmasked_classid else 0 for index in new_cap['category']]
 				cap_list.append( new_cap )
