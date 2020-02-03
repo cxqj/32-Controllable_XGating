@@ -60,12 +60,12 @@ def eval_split(model, crit, classify_crit, my_dset, eval_kwargs={}, pos_flag=Fal
 		if 'cuda' in str(type(seqLogprobs)):
 			seqLogprobs = seqLogprobs.cpu()
 
-		collect_state = collect_state.data.cpu().numpy()  # (m, seq_len+1, rnn_size)
-		collect_mask = collect_mask.data.cpu().numpy()  # (m, seq_len+1)
+		collect_state = collect_state.data.cpu().numpy()  # (B, seq_len+1, 512)
+		collect_mask = collect_mask.data.cpu().numpy()  # (B, seq_len+1)
 		collect_seq = seq.numpy()
 
                 if pos_flag:
-	        	for i, image_id in enumerate(image_ids):
+	        	for i, image_id in enumerate(image_ids):  #[vid8312,vid7649,......]
                                 try:
 	        		    writer.create_group(image_id)
                                 except ValueError:
