@@ -247,3 +247,4 @@ if __name__ == '__main__':
 	opt = myopts.parse_opt()
 	print('start training')
 	train(opt=opt)
+	
