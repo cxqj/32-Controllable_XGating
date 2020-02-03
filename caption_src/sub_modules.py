@@ -768,4 +768,6 @@ class two_inputs_lstmcell(nn.Module):
 		output = state_h  # (m, rnn_size)
 		# state returned has the same shape as the input state
 		return output, (state_h.unsqueeze(0), state_c.unsqueeze(0))
+	
+	
 
