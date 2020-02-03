@@ -82,7 +82,7 @@ class SAModel(CaptionModel):
 		# feats = self.TS_fusion(feats_temporal, feats_spatial)
 		# =============== atten + decoding ===========
 		batch_size = feats.size(0)
-		state = self.init_hidden(feats, feat_mask) # ( (1,m,rnn_size), (1,m,rnn_size) )
+		state = self.init_hidden(feats, feat_mask) # ( (1,B,512), (1,m,rnn_size) )
 		outputs_hidden = [] # before use log_softmax
 		outputs, categories = [], [] # after use log_softmax
 		for i in range(seq.size(1)):
@@ -311,3 +311,4 @@ if __name__ == '__main__':
 		# seq,seqlogprob = model.sample_beam(feat,feat_mask)
 		print(seq)
 		break
+		
