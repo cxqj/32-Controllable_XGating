@@ -75,8 +75,8 @@ model.eval()
 crit = LanguageModelCriterion()
 classify_crit = ClassiferCriterion()
 
-print ("testing starts ...")
-test_loss, predictions, lang_stats = eval_utils.eval_split(model, crit, classify_crit, mytest_dset, vars(opt), True)
+print ("testing starts ...") 
+test_loss, predictions, lang_stats = eval_utils.eval_split(model, crit, classify_crit, mytest_dset, vars(opt), True)  # pos_tag=True表示保存pos信息
 
 test_result = {}
 test_result['test_loss'] = test_loss
