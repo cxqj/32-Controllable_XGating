@@ -149,10 +149,10 @@ class SAModel(CaptionModel):
 			print('sampling with greedy search')
 		batch_size = feats.size(0)
 		state = self.init_hidden(feats, feat_mask)  # ((1,B,512),(1,B,512))
-		seq = []
-		seqLogprobs = []
-		collect_states = []
-		collect_masks = []
+		seq = []   # 生成的序列
+		seqLogprobs = []  # 序列元素的概率
+		collect_states = []  # (B,seq_len+1,512)
+		collect_masks = [] # (B,seq_len+1)
 		for t in range(self.seq_length + 1):  # seq_length + <bos>
 			if t == 0: # input <bos>
 				it = feats.data.new(batch_size).long().zero_()
@@ -160,7 +160,7 @@ class SAModel(CaptionModel):
 				sampleLogprobs, it = torch.max(logprobs.data, 1)
 				it = it.view(-1).long()
 
-			xt = self.embed(Variable(it, requires_grad=False))
+			xt = self.embed(Variable(it, requires_grad=False))  # (B,468)
 
 			if t >= 1:
 				# stop when all finished
@@ -178,12 +178,12 @@ class SAModel(CaptionModel):
 				xt_mask = Variable( torch.ones([batch_size,1]).float(),requires_grad=False ).cuda()
 			else:
 				xt_mask = Variable( unfinished.unsqueeze(-1).float(),requires_grad=False).cuda()  # (m,1)
-			output, state = self.lstmcore(xt,xt_mask,feats, state)
+			output, state = self.lstmcore(xt,xt_mask,feats, state) # (B,512),((1,B,512),(1,B,512))
 			logprobs = F.log_softmax(self.logit(output), dim=1)  # the Probability distributions of the predicted word
-			collect_states.append(state[0][-1])  # [(m, rnn_size),...] 共seq_length+1个，理想中最后一个是<EOS>状态。
-			collect_masks.append(xt_mask)
-		collect_states = torch.stack(collect_states, dim=1)  # (m, seq_len+1, rnn_size)
-		collect_masks = torch.cat(collect_masks, dim=1)  # (m, seq_len+1)
+			collect_states.append(state[0][-1])  # [(B, 512),...] 共seq_length+1个，理想中最后一个是<EOS>状态。
+			collect_masks.append(xt_mask) 
+		collect_states = torch.stack(collect_states, dim=1)  # (B, seq_len+1, 512)
+		collect_masks = torch.cat(collect_masks, dim=1)  # (B, seq_len+1)
 		return torch.cat([_.unsqueeze(1) for _ in seq], 1), torch.cat([_.unsqueeze(1) for _ in seqLogprobs], 1), collect_states, collect_masks
 
 class LanguageModelCriterion(nn.Module):  # compute and return mean loss for each word
