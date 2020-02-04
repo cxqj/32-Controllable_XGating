@@ -191,28 +191,28 @@ class custom_dset_train(Dataset):
 		self.feat_path1 = feat_path1
 		self.feat_path2 = feat_path2
 		self.pos_path = pos_path
-		print('got %d data and %d labels'%(len(self.data_list),len(self.cap_list)))
+		print('got %d data and %d labels'%(len(self.data_list),len(self.cap_list)))  # 129892
 
 	def __getitem__(self, index):
-		data = self.data_list[index]
-		cap = self.cap_list[index]['numbered']
-		cap_class = self.cap_list[index]['category']
-		class_mask = self.cap_list[index]['category_mask']
-		gts = self.gts_list[index]
+		data = self.data_list[index]  # vid2080_7
+		cap = self.cap_list[index]['numbered'] # [2,17,2550,2,285,5,2,16,21]
+		cap_class = self.cap_list[index]['category'] # [9,3,2,9,3,10,9,4,3]
+		class_mask = self.cap_list[index]['category_mask'] #[1,1,1,1,1,1,1,1]
+		gts = self.gts_list[index] # (20,20)
 
 		# feat = np.load(self.feat_path +'train/' + data.split('_')[0] + '.npy')
 		feat1 = self.feat_path1[data.split('_')[0]][:]
 		feat1 = get_sub_frames(feat1, self.K)
-		feat1 = torch.from_numpy(feat1).float()   # turn numpy data to Tensor
+		feat1 = torch.from_numpy(feat1).float()   # turn numpy data to Tensor (20,1536)
 
 		feat2 = self.feat_path2[data.split('_')[0]][:]
 		feat2 = get_sub_frames(feat2, self.K)
-		feat2 = torch.from_numpy(feat2).float()
+		feat2 = torch.from_numpy(feat2).float() # (20,1024)
 		
                 # feat_mask = (torch.sum(feat, dim=1, keepdim=True) != 0).float().transpose(1,0) # for fc features
 		feat_mask = (torch.sum(feat1.view(feat1.size(0), -1), dim=1, keepdim=True) != 0).float().transpose(1,0)
 
-		pos_feat = self.pos_path[data.split('_')[0]]['states'][:] 
+		pos_feat = self.pos_path[data.split('_')[0]]['states'][:]  # (seq_len+1,512)
 		pos_feat = pos_feat[-1]
 		pos_feat = torch.from_numpy(pos_feat).float()
 
@@ -298,7 +298,7 @@ class custom_dset_test(Dataset):
 		self.feat_path1 = feat_path1
 		self.feat_path2 = feat_path2
 		self.pos_path = pos_path
-		print('got %d data and %d labels'%(len(self.data_list),len(self.cap_list)))
+		print('got %d data and %d labels'%(len(self.data_list),len(self.cap_list))) # val:497,test:2990
 
 	def __getitem__(self, index):
 		data = self.data_list[index]
