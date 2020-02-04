@@ -67,9 +67,9 @@ def train(opt):
 	model.cuda()
 	model.train()
 
-	crit = LanguageModelCriterion()
-	classify_crit = ClassiferCriterion()
-	rl_crit = RewardCriterion()
+	crit = LanguageModelCriterion()  # 评估生成的caption
+	classify_crit = ClassiferCriterion() # 评估分类结果
+	rl_crit = RewardCriterion() # RL训练
 
 	# select optimizer
 	if opt.optim == 'adam':
@@ -122,11 +122,11 @@ def train(opt):
 
 			optimizer.zero_grad()
 			if not sc_flag:
-				out, category = model(feat1, feat2, feat_mask,pos_feat,cap,cap_mask)  # (m,seq_len+1,n_words),(m, seq_len+1, n_classes)
+				out, category = model(feat1, feat2, feat_mask,pos_feat,cap,cap_mask)  # (B,seq_len+1,29324),(B,seq_len+1,14)
 				loss_language = crit(out, cap, cap_mask)
 				loss_classify = classify_crit(category, cap_classes, cap_mask, class_mask)
 				# print(loss_language.data[0], loss_classify.data[0])
-				loss = loss_language + opt.weight_class * loss_classify
+				loss = loss_language + opt.weight_class * loss_classify  # weight_class为0，不再训练pos信息生成，仅仅训练caption
 			else:
 				gen_result,sample_logprobs = model.sample(feat1, feat2, feat_mask, pos_feat, {'sample_max':0})
 				reward = myutils.get_self_critical_reward(model,feat1, feat2, feat_mask, pos_feat, groundtruth,gen_result) # (m,max_length)
