@@ -126,6 +126,7 @@ class SAModel(CaptionModel):
 
 		return logprobs, state
 
+	# 在集束搜索时使用
 	def sample_beam(self, feats, feat_masks, pos_feats, opt={}): #feats:(m,28,visual_size),feat_mask(m,28), pos_feats:(m,rnn_size)
 		beam_size = opt.get('beam_size', 5)
 		print('sampling with beam search ( beam_size = {} )'.format(beam_size))
@@ -166,7 +167,7 @@ class SAModel(CaptionModel):
 		temperature = opt.get('temperature', 1.0)
 		# =========== encoder lstm on feats =================
 		# feats_temporal = self.encoder(feats_rgb, feats_opfl, feat_mask)  # (m,28,rnn_size)
-		feats = self.two_spatial_encoder(feats_rgb, feats_opfl, feat_mask)
+		feats = self.two_spatial_encoder(feats_rgb, feats_opfl, feat_mask) # (B,20,512)
 		# feats = self.fc_encoder(feats_rgb, feat_mask)
 		# feats = self.one_spatial_encoder(feats_rgb_pool, feat_mask)
 		# feats = self.TS_fusion(feats_temporal, feats_spatial)
@@ -176,9 +177,9 @@ class SAModel(CaptionModel):
 		else:
 			print('sampling with greedy search')
 		batch_size = feats.size(0)
-		state = self.init_hidden(feats, feat_mask)
-		seq = []
-		seqLogprobs = []
+		state = self.init_hidden(feats, feat_mask) # [((1,B,512),(1,B,512)),((1,B,512),(1,B,512))]
+		seq = []  # 保存生成的seq
+		seqLogprobs = [] # seq元素对应的概率
 		for t in range(self.seq_length + 1):  # seq_length + <bos>
 			if t == 0: # input <bos>
 				it = feats.data.new(batch_size).long().zero_()
@@ -213,7 +214,7 @@ class SAModel(CaptionModel):
 				xt_mask = Variable( torch.ones([batch_size,1]).float(),requires_grad=False ).cuda()
 			else:
 				xt_mask = Variable( unfinished.unsqueeze(-1).float(),requires_grad=False).cuda()  # (m,1)
-			output, state = self.lstmcore(xt,xt_mask,feats,pos_feats, state)
+			output, state = self.lstmcore(xt,xt_mask,feats,pos_feats, state) #(B,512),[((1,B,512),(1,B,512)),((1,B,512),(1,B,512))]
 			logprobs = F.log_softmax(self.logit(output), dim=1)  # the Probability distributions of the predicted word
 
 		return torch.cat([_.unsqueeze(1) for _ in seq], 1), torch.cat([_.unsqueeze(1) for _ in seqLogprobs], 1)
