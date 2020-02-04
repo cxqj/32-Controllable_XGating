@@ -115,27 +115,27 @@ class EncoderLstm_two_fc(nn.Module):
 		c_0 = Variable(torch.FloatTensor(*h_size).zero_(), requires_grad=False).cuda()
 		return (h_0, c_0)
 
-	def forward(self, feats_rgb, feats_opfl, feats_mask ):  # feats:(m, 28, 1536), feats_mask:(m,28)
+	def forward(self, feats_rgb, feats_opfl, feats_mask ):  # feats_rgb:(B,20,1536),feats_flow:(B,20,1024) feats_mask:(,28)
 		batch_size, feat_len = feats_rgb.size(0), feats_rgb.size(1)  # 因为rgb和optical flow在数据数据输入阶段规定了只采样30帧，因此二者shape是完全一样的。
 		# for rgb features
 		emb_rgb = self.visual_emb_rgb(feats_rgb.view(-1, feats_rgb.size(-1)))
 		emb_rgb = emb_rgb.view(batch_size, feat_len, -1)
-		emb_rgb = self.drop_out(emb_rgb) * feats_mask.unsqueeze(-1)
-		state_rgb = self.init_hidden(batch_size)
+		emb_rgb = self.drop_out(emb_rgb) * feats_mask.unsqueeze(-1) #(B,20,512)
+		state_rgb = self.init_hidden(batch_size)  #((B,512),(B,512)) hidden_state and memory state
 		# for optical flow features
 		emb_opfl = self.visual_emb_opfl(feats_opfl.view(-1, feats_opfl.size(-1)))
 		emb_opfl = emb_opfl.view(batch_size, feat_len, -1)
-		emb_opfl = self.drop_out(emb_opfl) * feats_mask.unsqueeze(-1)
-		state_opfl = self.init_hidden(batch_size)
+		emb_opfl = self.drop_out(emb_opfl) * feats_mask.unsqueeze(-1) #(B,20,512)
+		state_opfl = self.init_hidden(batch_size) #((B,512),(B,512))
 
 		out_feats_rgb, out_feats_opfl = [], []
 		for i in range(feat_len):
-			input_rgb = emb_rgb[:, i, :]
-			input_opfl = emb_opfl[:, i, :]
+			input_rgb = emb_rgb[:, i, :] #(B,512)
+			input_opfl = emb_opfl[:, i, :] #(B,512)
 
 			# for rgb features
-			mask_rgb = feats_mask[:, i]
-			state_h_rgb, state_c_rgb = self.lstmcell_rgb(input_rgb, state_rgb)
+			mask_rgb = feats_mask[:, i] 
+			state_h_rgb, state_c_rgb = self.lstmcell_rgb(input_rgb, state_rgb) 
 			state_h_rgb = state_h_rgb * mask_rgb.unsqueeze(-1)
 			state_c_rgb = state_c_rgb * mask_rgb.unsqueeze(-1)
 			state_rgb = (state_h_rgb, state_c_rgb)
@@ -649,16 +649,22 @@ class LSTMCore_two_layer_gate(nn.Module):
 		torch.cuda.manual_seed(opt.seed)
 		#  word and rnn size
 		self.input_encoding_size = opt.input_encoding_size  #  468
-		self.rnn_size = opt.rnn_size  #  1000 or 3518
+		self.rnn_size = opt.rnn_size  #  512
 		#  feat and attention size
-		self.visual_size = opt.rnn_size
-		self.att_size = opt.att_size  #
-		self.globalpos_size = opt.rnn_size
+		self.visual_size = opt.rnn_size  # 512
+		self.att_size = opt.att_size  # 1536
+		self.globalpos_size = opt.rnn_size # 512
 		#  drop out
 		self.drop_prob_lm = opt.drop_prob_lm  #  0.5
 		#  The first lstm layer
 		# self.lstm_1 = one_input_lstmcell(self.input_encoding_size, self.rnn_size, self.drop_prob_lm)
 		self.gate = Gate(opt.seed, self.input_encoding_size, self.globalpos_size, self.drop_prob_lm)
+		"""
+		LSTM layers for decoder generate sentence!
+		The first layer is fed with the generated word stt 1 and the global
+                POS feature ψ, while the second one takes the hidden state of first 
+		layer and an attentive summary of X as input.
+		"""
 		self.lstm_1 = two_inputs_lstmcell(self.input_encoding_size, self.globalpos_size, self.rnn_size, self.drop_prob_lm)
 		#  The second lstm layer
 		self.lstm_2 = two_inputs_lstmcell(self.rnn_size, self.visual_size, self.rnn_size, self.drop_prob_lm)
@@ -668,20 +674,24 @@ class LSTMCore_two_layer_gate(nn.Module):
 		self.h2a = nn.Linear(self.rnn_size + self.rnn_size, self.att_size)  #  Wh  (1000,1536)
 		self.a2w = nn.Linear(self.att_size, 1)  #  Wtanh(Wh+Uv+b)  (1536,1)
 
-	def forward(self, xt, xt_mask, V, pos_feat, state): # xt:(m,input_encoding_size) xt_mask:(m,1) V:(m,28,visual_size) pos_feat:(m, pos_size)
+	def forward(self, xt, xt_mask, V, pos_feat, state): # xt:(B,468) xt_mask:(B,1) V:(B,20,512) pos_feat:(B,512)
 		'''state should be a list: [state_layer1, state_layer2]'''
 		assert len(state) == 2, "input parameters 'state' expect a list with 2 elements"
 		# the first LSTM only take "xt" as input
-		state1, state2 = state[0], state[1]
+		state1, state2 = state[0], state[1] #((1,B,512),(1,B,512))
 		# attention
-		alpha = self.h2a(torch.cat([state1[0][-1], state2[0][-1]], dim=1)).unsqueeze(1) + self.v2a(V)  # (m, feat_K, att_size)
-		alpha = self.a2w(F.tanh(alpha))  # (m, feat_K, 1)
-		alpha = F.softmax(alpha.transpose(1, 0), dim=0).transpose(1, 0)  # (m, feat_K, 1)
-		af = torch.sum(alpha * V, dim=1)  # (m, visual_size)
+		alpha = self.h2a(torch.cat([state1[0][-1], state2[0][-1]], dim=1)).unsqueeze(1) + self.v2a(V)  # (B,20,1536)
+		alpha = self.a2w(F.tanh(alpha))  # (B, 20, 1)
+		alpha = F.softmax(alpha.transpose(1, 0), dim=0).transpose(1, 0)  # (B, 20, 1)
+		af = torch.sum(alpha * V, dim=1)  # # (B, 20, 1)x(B,20,512)=(B,512)
 		# tow-layer lstm
-		gated_posfeat = self.gate(xt, pos_feat)
-		output_1, state1 = self.lstm_1(xt, gated_posfeat, state1, xt_mask)
-		output, state2 = self.lstm_2(output_1, af, state2, xt_mask)
+		gated_posfeat = self.gate(xt, pos_feat)  #(B,512)
+		"""
+		first layer : input is Xt-1 word embedding and global pos feature
+		second layer : input is output of first layer and attentioned featured
+		"""
+		output_1, state1 = self.lstm_1(xt, gated_posfeat, state1, xt_mask) # (B,512) , ((1,B,512),(1,B,512))
+		output, state2 = self.lstm_2(output_1, af, state2, xt_mask) # (B,512) , ((1,B,512),(1,B,512))
 		# states：
 		state = [state1, state2]
 		return output, state
