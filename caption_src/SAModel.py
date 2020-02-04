@@ -75,17 +75,17 @@ class SAModel(CaptionModel):
 		# ===== here insert encoder lstm operation =====
 		# feats_temporal = self.encoder(feats_rgb, feats_opfl, feat_mask)  # (m,28,visual_size)
 		# ===== 进行 spatial attention =====
-		feats = self.two_spatial_encoder(feats_rgb, feats_opfl, feat_mask)  # (m, K, depth)
+		feats = self.two_spatial_encoder(feats_rgb, feats_opfl, feat_mask)  # (B, 20, 512)
 		# feats = self.fc_encoder(feats_rgb, feat_mask)
 		# feats = self.one_spatial_encoder(feats_rgb_pool, feat_mask)
 		# ===== 进行 temporal 和 spatial 级别的融合
 		# feats = self.TS_fusion(feats_temporal, feats_spatial)
 		# =============== atten + decoding ===========
 		batch_size = feats.size(0)
-		state = self.init_hidden(feats, feat_mask) # ( (1,B,512), (1,m,rnn_size) )
+		state = self.init_hidden(feats, feat_mask) # ( (1,B,512), (1,B,512) )
 		outputs_hidden = [] # before use log_softmax
 		outputs, categories = [], [] # after use log_softmax
-		for i in range(seq.size(1)):
+		for i in range(seq.size(1)):  # seq:(B,25)
 			if self.training and i >= 1 and self.ss_prob > 0.0: # otherwise no need to sample
 				sample_prob = feats.data.new(batch_size).uniform_(0, 1)
 				sample_mask = sample_prob < self.ss_prob
@@ -222,16 +222,16 @@ class LanguageModelCriterion(nn.Module):  # compute and return mean loss for eac
 	def __init__(self):
 		super(LanguageModelCriterion, self).__init__()
 
-	def forward(self, input, target, mask):  # input:(m,seq_len+1,n_words),target:(m,seq_len+1),mask:(m,seq_len+1)
+	def forward(self, input, target, mask):  # input:(B,seq_len+1,29324),target:(B,seq_len+1),mask:(B,seq_len+1)
 		# truncate to the same size
-		input = to_contiguous(input).view(-1,input.size(2))  #( m*(seq_len+1),n_words )
-		target = torch.cat((target[:,1:],target[:,0].unsqueeze(1)),dim=1) # (m,seq_len+1)
-		target = to_contiguous(target).view(-1,1)  # ( m*(seq_len+1),1 )
-		mask = to_contiguous(mask).view(-1,1)  # ( m*(seq_len+1),1 )
+		input = to_contiguous(input).view(-1,input.size(2))  #(B*seq_len+1,29324)
+		target = torch.cat((target[:,1:],target[:,0].unsqueeze(1)),dim=1) # (B,seq_len+1)
+		target = to_contiguous(target).view(-1,1)  # ( B*seq_len+1,1 )
+		mask = to_contiguous(mask).view(-1,1)  # ( B*seq_len+1,1 )
 
 		output = -1. * input.gather(1,target) * mask
 		output = torch.sum(output) / torch.sum(mask)
-		return output
+		return output  # caption loss
 
 class ClassiferCriterion(nn.Module):
 	''' Compute and return mean classifer loss '''
@@ -249,7 +249,7 @@ class ClassiferCriterion(nn.Module):
 		else:
 			class_mask = to_contiguous(class_mask).view(-1, 1)  # (m*(seq_len+1), 1)
 			output = output * class_mask
-			output = torch.sum(output) / torch.sum(mask * class_mask)
+			output = torch.sum(output) / torch.sum(mask * class_mask)  # mask是caption mask ，用mask和class_mask相乘就可以得到有效的mask
 		return output
 
 class RewardCriterion(nn.Module):
@@ -311,4 +311,5 @@ if __name__ == '__main__':
 		# seq,seqlogprob = model.sample_beam(feat,feat_mask)
 		print(seq)
 		break
+		
 		
