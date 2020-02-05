@@ -16,13 +16,13 @@ class SAModel(CaptionModel):
 		torch.manual_seed(opt.seed)
 		torch.cuda.manual_seed(opt.seed)
 
-		self.vocab_size = opt.vocab_size
-		self.category_size = opt.category_size
+		self.vocab_size = opt.vocab_size # 29324
+		self.category_size = opt.category_size # 14
 		self.input_encoding_size = opt.input_encoding_size  # 468
 		self.rnn_size = opt.rnn_size  # 512
-		self.visual_size = opt.rnn_size
+		self.visual_size = opt.rnn_size # 512
 		self.num_layers = opt.num_layers  # 1
-		self.drop_prob_lm = opt.drop_prob_lm
+		self.drop_prob_lm = opt.drop_prob_lm # 0.5
 		self.seq_length = opt.seq_length
 		self.ss_prob = 0.0  # Schedule sampling probability
 		# self.img_embed = nn.Linear(self.feat_size, self.input_encoding_size)  # (1536,468)
@@ -35,14 +35,14 @@ class SAModel(CaptionModel):
 		# self.one_spatial_encoder = EncoderLstm_one_spatial(opt)
 		# self.TS_fusion = Fusion(opt.seed, opt.rnn_size, opt.feat_depth, opt.rnn_size, opt.drop_prob_lm, opt.fusion_activity)
 
-		self.img_embed_h_1 = nn.Linear(self.visual_size, self.rnn_size)  # (rnn_size, rnn_size)
+		self.img_embed_h_1 = nn.Linear(self.visual_size, self.rnn_size)  # (rnn_size, rnn_size) rnn_size=512
 		self.img_embed_c_1 = nn.Linear(self.visual_size, self.rnn_size)  # (rnn_size, rnn_size)
 		self.img_embed_h_2 = nn.Linear(self.visual_size, self.rnn_size)  # (rnn_size, rnn_size)
 		self.img_embed_c_2 = nn.Linear(self.visual_size, self.rnn_size)  # (rnn_size, rnn_size)
 		#self.lstmcore = LSTMCore_two_layer(opt)  # for decoder
 		self.lstmcore = LSTMCore_two_layer_gate(opt)
-		self.embed = nn.Embedding(self.vocab_size, self.input_encoding_size)  # (20000,468)
-		self.logit = nn.Linear(self.rnn_size, self.vocab_size)  # (1000,20000)
+		self.embed = nn.Embedding(self.vocab_size, self.input_encoding_size)  # (29324,468)
+		self.logit = nn.Linear(self.rnn_size, self.vocab_size)  # (512,29324)
 		self.classifer = nn.Sequential(nn.Linear(self.rnn_size, 128),
 		                               nn.ReLU(),
 		                               nn.Dropout(self.drop_prob_lm),
@@ -116,13 +116,13 @@ class SAModel(CaptionModel):
 
 	def get_logprobs_state(self, it, feats, pos_feats, state): # just obtain the logprobs and state for one only word
 		# 'it' is Variable contraining a word index
-		batch_size = it.size(0)
-		xt = self.embed(it)
+		batch_size = it.size(0) #(3)
+		xt = self.embed(it) #(3,468)
 		xt_mask = Variable( torch.ones([batch_size,1]).float(), requires_grad=False ).cuda()
 
 		# def forward(self, xt, xt_mask, V, state)
-		output, state = self.lstmcore(xt,xt_mask,feats,pos_feats, state)
-		logprobs = F.log_softmax(self.logit(output),dim=1)
+		output, state = self.lstmcore(xt,xt_mask,feats,pos_feats, state) # outputs:(3,29324) state:[((1,3,512),(1,3,512)),((1,3,512),(1,3,512))]
+		logprobs = F.log_softmax(self.logit(output),dim=1)  #()
 
 		return logprobs, state
 
