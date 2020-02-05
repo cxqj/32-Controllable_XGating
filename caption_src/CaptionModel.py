@@ -20,8 +20,10 @@ class CaptionModel(nn.Module):
 		super(CaptionModel, self).__init__()
 
 	"""
-	state:((1,beam_size,512),(1,beam_size ,512))
-	
+	state:[((1,beam_size,512),(1,beam_size ,512)),((1,beam_size,512),(1,beam_size ,512))]
+	logprobs:(3,29324)
+	feat:(20,512)
+	pos_feat:(512,)
 	"""
 	def beam_search(self, state, logprobs, feat, pos_feat, *args, **kwargs): # logprobs:(beam_size,n_words),feat:(28,1536), pos_feat:(512,)
 		# args are the miscelleous inputs to the core in addition to embedded word and state
@@ -29,21 +31,21 @@ class CaptionModel(nn.Module):
 
 		def beam_step(logprobsf, beam_size, t, beam_seq, beam_seq_logprobs, beam_logprobs_sum, state):
 			#INPUTS:
-			#logprobsf: probabilities augmented after diversity  (beam_size, n_words)
-			#beam_size: obvious
+			#logprobsf: probabilities augmented after diversity  (3, 29324)
+			#beam_size: obvious 3
 			#t        : time instant
-			#beam_seq : tensor contanining the beams  (seq_length,beam_size)
-			#beam_seq_logprobs: tensor contanining the beam logprobs  (seq_length,beam_size)
-			#beam_logprobs_sum: tensor contanining joint logprobs  (beam_size)
+			#beam_seq : tensor contanining the beams  (28,3)
+			#beam_seq_logprobs: tensor contanining the beam logprobs  (28,3)
+			#beam_logprobs_sum: tensor contanining joint logprobs  (3)
 			#OUPUTS:
 			#beam_seq : tensor containing the word indices of the decoded captions
 			#beam_seq_logprobs : log-probability of each decision made, same size as beam_seq
 			#beam_logprobs_sum : joint log-probability of each beam
 
-			ys,ix = torch.sort(logprobsf,1,True) # descending sort, ys:(beam_size,nwords), ix:(beam_size,nwords)
-			candidates = []
-			cols = min(beam_size, ys.size(1))  # ys.size(1) = n_words
-			rows = beam_size
+			ys,ix = torch.sort(logprobsf,1,True) # descending sort, ys:(3, 29324), ix:(3, 29324)
+			candidates = []  # {单词索引，行索引，累计概率，当前概率}
+			cols = min(beam_size, ys.size(1))  # ys.size(1) = n_words 3
+			rows = beam_size # 3
 			if t == 0: # from <BOS>
 				rows = 1
 			for c in range(cols): # for each column (word, essentially) --which word
@@ -83,19 +85,19 @@ class CaptionModel(nn.Module):
 		opt = kwargs['opt']
 		beam_size = opt.get('beam_size', 5)
 
-		beam_seq = torch.LongTensor(self.seq_length, beam_size).zero_()  # (seq_length,beam_size) (30,5)
-		beam_seq_logprobs = torch.FloatTensor(self.seq_length, beam_size).zero_() # (seq_length,beam_size)
-		beam_logprobs_sum = torch.zeros(beam_size) # running sum of logprobs for each beam, it decides the best sequence
+		beam_seq = torch.LongTensor(self.seq_length, beam_size).zero_()  # (seq_length,beam_size) (28,3)
+		beam_seq_logprobs = torch.FloatTensor(self.seq_length, beam_size).zero_() # (seq_length,beam_size) (28,3)
+		beam_logprobs_sum = torch.zeros(beam_size) # running sum of logprobs for each beam, it decides the best sequence [0,0,0]
 		done_beams = []
 
-		for t in range(self.seq_length):  # for each word, for t in range(30):
+		for t in range(self.seq_length):  # for each word, for t in range(28):
 			"""pem a beam merge. that is,
 			for every previous beam we now many new possibilities to branch out
 			we need to resort our beams to maintain the loop invariant of keeping
 			the top beam_size most likely sequences."""
-			logprobsf = logprobs.data.float() # lets go to CPU for more efficiency in indexing operations (beam_size,n_words)
+			logprobsf = logprobs.data.float() # lets go to CPU for more efficiency in indexing operations (3,29324)
 			# suppress UNK tokens in the decoding, the index of 'UNK' is 1. So the probs of 'UNK' are extremely low
-			logprobsf[:,1] =  logprobsf[:,1] - 1000  # logprobs:(beam_size,n_words)
+			logprobsf[:,1] =  logprobsf[:,1] - 1000  # logprobs:(3,29324)
 
 			beam_seq,\
 			beam_seq_logprobs,\
@@ -122,10 +124,11 @@ class CaptionModel(nn.Module):
 					beam_logprobs_sum[vix] = -1000
 
 			# encode as vectors
-			it = beam_seq[t]  # (beam_size,)
-			feat_ = feat.expand( it.size(0), feat.size(0), feat.size(1) ) # (beam_size,28,1536)
-			pos_feat_ = pos_feat.expand(it.size(0), pos_feat.size(0))  # (beam_size, 512)
+			it = beam_seq[t]  # (3,)
+			feat_ = feat.expand( it.size(0), feat.size(0), feat.size(1) ) # (3,20,512)
+			pos_feat_ = pos_feat.expand(it.size(0), pos_feat.size(0))  # (3, 512)
 			# feat_ = np.mean(feat.data.numpy(), axis=1, dtype=np.float32)  # feat:(28,1536)
+			# 利用生成的单词再次生成新的概率和state
 			logprobs, state = self.get_logprobs_state(Variable(it.cuda()), feat_, pos_feat_, *(args + (state,)))  # the ',' in (state,) ensure it's tuple
 
 		done_beams = sorted(done_beams, key=lambda x: -x['p'])[:beam_size] # choose the top beam_size results
