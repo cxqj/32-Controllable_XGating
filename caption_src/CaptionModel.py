@@ -19,6 +19,10 @@ class CaptionModel(nn.Module):
 	def __init__(self):
 		super(CaptionModel, self).__init__()
 
+	"""
+	state:((1,beam_size,512),(1,beam_size ,512))
+	
+	"""
 	def beam_search(self, state, logprobs, feat, pos_feat, *args, **kwargs): # logprobs:(beam_size,n_words),feat:(28,1536), pos_feat:(512,)
 		# args are the miscelleous inputs to the core in addition to embedded word and state
 		# kwargs only accept opt
