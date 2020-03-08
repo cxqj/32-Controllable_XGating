@@ -711,7 +711,7 @@ class LSTMCore_one_layer(nn.Module):
 		af = torch.sum(alpha*V, dim=1)  #  (B,512)
 
 		# lstm unit
-		output, state = self.lstmcell(xt, af, state, xt_mask)
+		output, state = self.lstmcell(xt, af, state, xt_mask)   # 把词嵌入和融合后的视频特征送入LSTM中建模两者关系
 		return output, state
 
 
@@ -857,34 +857,37 @@ class two_inputs_lstmcell(nn.Module):
 		self.visual_size = visual_size # 512
 		self.drop_lm = drop_lm # 0.5
 		# input1
-		self.i2h = nn.Linear(self.input_size, 4 * self.rnn_size)
+		self.i2h = nn.Linear(self.input_size, 4 * self.rnn_size)  #468-->2048
 		# input2
-		self.a2h = nn.Linear(self.visual_size, 4 * self.rnn_size)
+		self.a2h = nn.Linear(self.visual_size, 4 * self.rnn_size) # 512-->2048
 		# previous hidden
-		self.h2h = nn.Linear(self.rnn_size, 4 * self.rnn_size)
+		self.h2h = nn.Linear(self.rnn_size, 4 * self.rnn_size)  # 512-->2048
 		# dropout
 		if self.drop_lm is not None:
 			self.dropout = nn.Dropout(self.drop_lm)
 
 	def forward(self, input1, input2, state, mask=None):  # inputs1=(B,468),inputs2=(B,512)  state : ((1,B,512),(1,B,512))
 		''' 要求输入的state形状是 ((1, m, rnn_size),(1, m, rnn_size)) '''
+		# 将词嵌入特征，视频特征，hidden_state相加融合
 		all_input_sums = self.i2h(input1) + self.a2h(input2) + self.h2h(state[0][-1])  # (B,2048)
 		sigmoid_chunk = all_input_sums.narrow(dimension=1, start=0, length=3*self.rnn_size) # narrow:选取变量的某一维度的某几个值
+	         # 构建输入门，遗忘门，输出门
 		sigmoid_chunk = F.sigmoid(sigmoid_chunk)
 		in_gate = sigmoid_chunk.narrow(1, 0, self.rnn_size)  # (B,512)
 		forget_gate = sigmoid_chunk.narrow(1, self.rnn_size, self.rnn_size) # (B,512)
 		out_gate = sigmoid_chunk.narrow(1, self.rnn_size * 2, self.rnn_size) # (B,512)
+		 # 输入信息
 		tanh_chunk = all_input_sums.narrow(1, 3 * self.rnn_size, self.rnn_size) # (B,512)
 		in_transform = F.tanh(tanh_chunk)
 		state_c = forget_gate * state[1][-1] + in_gate * in_transform # (B,512)
 		if mask is not None:
 			state_c = state_c * mask + state[1][-1] * (1. - mask)
-		state_h = out_gate * F.tanh(state_c)
+		state_h = out_gate * F.tanh(state_c)  #(B,512)
 		if mask is not None:
 			state_h = state_h * mask + state[0][-1] * (1. - mask) # (B,512)
 		if self.drop_lm is not None:
 			state_h = self.dropout(state_h)
-		output = state_h  # (m, rnn_size)
+		output = state_h  # (B,512)
 		# state returned has the same shape as the input state
 		return output, (state_h.unsqueeze(0), state_c.unsqueeze(0)) # (B,512),((1,B,512),(1,B,512))
 
