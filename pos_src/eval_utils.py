@@ -36,10 +36,16 @@ def eval_split(model, crit, classify_crit, my_dset, eval_kwargs={}, pos_flag=Fal
 	    writer = h5py.File('./globalpos_features/msrvtt_pos.hdf5')
 	myloader = DataLoader(my_dset, batch_size=eval_kwargs.get('batch_size',64), collate_fn=data_io.collate_fn,shuffle=False)
 	for data, cap, cap_mask, cap_classes, class_mask, feat1, feat2, feat_mask, lens, groundtruth, image_ids in myloader:
+		"""
+		cap: 索引化后的caption,注意第一个单词都为0也就是起始单词
+		cap_mask: caption的mask，包含了起始和结束单词
+		cap_classes: caption单词的词性索引
+		class_mask: 词性mask
+		"""
 		tmp = [cap, cap_mask, cap_classes, class_mask, feat1, feat2, feat_mask]
 		tmp = [Variable(_, volatile=True).cuda() for _ in tmp]
 		cap, cap_mask, cap_classes, class_mask, feat1, feat2, feat_mask = tmp
-
+                # 由于cap的第一个单词是起始单词，而原先的cap_class并未考虑第一个单词为起始单词，因此这一步需要对cap_class进行处理
 		cap_classes = torch.cat([cap_classes[:, -1:], cap_classes[:, :-1]], dim=-1)  # (m, seq_len+1)
 		new_mask = torch.zeros_like(class_mask)  # (m, seq_len+1)
 		for i in range(class_mask.size(0)):
@@ -54,7 +60,7 @@ def eval_split(model, crit, classify_crit, my_dset, eval_kwargs={}, pos_flag=Fal
 		# forward the model to also get generated samples for each image
 		# seg:[[9,3,2,2,2,2,2,9,3,3],[9,3,2,2,2,2,2,9,3,3]]
 		# segLogprobs :[[-0.3068,....],[-0.29725,.....]]
-		seq, seqLogprobs, collect_state, collect_mask = model.sample(feat1, feat2, feat_mask, eval_kwargs)
+		seq, seqLogprobs, collect_state, collect_mask = model.sample(feat1, feat2, feat_mask, eval_kwargs)  # 仅用特征预测的pos，和测试是一样的
 		if 'cuda' in str(type(seq)):
 			seq = seq.cpu()
 		if 'cuda' in str(type(seqLogprobs)):
