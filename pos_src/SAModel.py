@@ -148,14 +148,15 @@ class SAModel(CaptionModel):
 		else:
 			print('sampling with greedy search')
 		batch_size = feats.size(0)
-		state = self.init_hidden(feats, feat_mask)  # ((1,B,512),(1,B,512))
+		state = self.init_hidden(feats, feat_mask)  # ((1,B,512),(1,B,512))  平均化后的视频特征
 		seq = []   # 生成的序列
 		seqLogprobs = []  # 序列元素的概率
 		collect_states = []  # (B,seq_len+1,512)
 		collect_masks = [] # (B,seq_len+1)
+		 #注意生成序列时，有效的序列从1开始
 		for t in range(self.seq_length + 1):  # seq_length + <bos>
 			if t == 0: # input <bos>
-				it = feats.data.new(batch_size).long().zero_()
+				it = feats.data.new(batch_size).long().zero_()  #(B)
 			elif sample_max:  # greedy search
 				sampleLogprobs, it = torch.max(logprobs.data, 1)
 				it = it.view(-1).long()
@@ -165,7 +166,7 @@ class SAModel(CaptionModel):
 			if t >= 1:
 				# stop when all finished
 				if t == 1:
-					unfinished = it > 0
+					unfinished = it > 0   # 0是结束单词的索引
 				else:
 					unfinished = unfinished * (it > 0)
 				if unfinished.sum() == 0:
@@ -179,7 +180,7 @@ class SAModel(CaptionModel):
 			else:
 				xt_mask = Variable( unfinished.unsqueeze(-1).float(),requires_grad=False).cuda()  # (m,1)
 			output, state = self.lstmcore(xt,xt_mask,feats, state) # (B,512),((1,B,512),(1,B,512))
-			logprobs = F.log_softmax(self.logit(output), dim=1)  # the Probability distributions of the predicted word
+			logprobs = F.log_softmax(self.logit(output), dim=1)  # (B,512)-->(B,14)
 			collect_states.append(state[0][-1])  # [(B, 512),...] 共seq_length+1个，理想中最后一个是<EOS>状态。
 			collect_masks.append(xt_mask) 
 		collect_states = torch.stack(collect_states, dim=1)  # (B, seq_len+1, 512)
