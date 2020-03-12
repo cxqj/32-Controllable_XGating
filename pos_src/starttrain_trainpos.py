@@ -134,6 +134,7 @@ def train(opt):
 			"""
 			[0,9,3,2,2,2,2,3,1,6,3,3],[0,2,2,2,8,9,2,0,0,0,0,0]  向右循环移动一位
 			"""
+			 #由于在caption前面补了起始索引0，因此需要把cap_class向右移动一位
 			cap_classes = torch.cat([cap_classes[:, -1:], cap_classes[:, :-1]], dim=-1)  # (m, seq_len+1)
 			new_mask = torch.zeros_like(class_mask)  # (m, seq_len+1)
 			for i in range(class_mask.size(0)):
