@@ -347,6 +347,7 @@ def collate_fn(batch): # batch: ( data, cap, feat)
 	feats2 = torch.stack(feat2, dim=0)
 	feat_mask = torch.cat(feat_mask,dim=0)
 
+	 # 为caption添加起始的索引0
 	caps = []
 	lens = []
 	caps_mask = torch.zeros([len(cap),max_len+1])  # (m, max_len+1)
@@ -366,9 +367,9 @@ def collate_fn(batch): # batch: ( data, cap, feat)
 	for i in range(len(cap_class)): # for each data in batch
 		temp_cap_class = [0] * (max_len+1)
 		temp_cap_class[0:len(cap_class[i])] = cap_class[i]
-		cap_classes.append(temp_cap_class)
+		cap_classes.append(temp_cap_class)   # caption_class保持原样
 		temp_class_mask = [0] * (max_len + 1)
-		temp_class_mask[0:len(class_mask[i])] = class_mask[i]
+		temp_class_mask[0:len(class_mask[i])] = class_mask[i]  # class_mask在最后加1
 		temp_class_mask[len(class_mask[i])] = 1
 		class_masks.append(temp_class_mask)
 		# class_mask[i, 0:len(class_mask[i])] = torch.from_numpy(class_mask[i])
