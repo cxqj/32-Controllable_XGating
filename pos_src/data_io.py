@@ -350,7 +350,7 @@ def collate_fn(batch): # batch: ( data, cap, feat)
 	 # 为caption添加起始的索引0
 	caps = []
 	lens = []
-	caps_mask = torch.zeros([len(cap),max_len+1])  # (m, max_len+1)
+	caps_mask = torch.zeros([len(cap),max_len+1])  # (64, 20+1)
 	for i in range(len(cap)):  #  for each data in the batch:
 		temp_cap = [0]*(max_len+1)
 		temp_cap[1:len(cap[i])+1] = cap[i]  # here print the original and temp_cap, for compared
@@ -359,7 +359,7 @@ def collate_fn(batch): # batch: ( data, cap, feat)
 		lens.append(len(cap[i]))
 	caps = torch.LongTensor(caps)
 
-	# collect word category
+	#caption对应的pos信息和pos_mask，因为前面的caption添加了一个起始单词，后面对应的cap_class需要右移一下
 	cap_classes = []
 	class_masks = []
 	# class_mask = torch.zeros([len(cap_classes), max_len+1])  # (m, max_len+1)
